@@ -95,7 +95,9 @@
     {% endif %}
 
     <button id="checkDataBtn" style="margin-top: 10px;">Check Data</button>
+    <button id="showPathFilesBtn" style="margin-left: 10px; margin-top: 10px;">Show Path and Files</button>
     <iframe id="dataFrame" src="" style="width: 100%; height: 400px; display: none; border: 1px solid #ccc; margin-top: 10px;"></iframe>
+    <div id="pathFilesFrame" style="display: none; margin-top: 10px; padding: 10px; border: 1px solid #ccc; background-color: #1e1e1e; color: #e0e0e0; max-height: 400px; overflow-y: auto;"></div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -206,6 +208,36 @@
                 } else {
                     frame.style.display = 'none';
                     frame.src = '';
+                }
+            };
+
+            // Toggle path and files display and fetch data
+            document.getElementById('showPathFilesBtn').onclick = function() {
+                var frame = document.getElementById('pathFilesFrame');
+                if(frame.style.display === 'none') {
+                    fetch('/get_path_files')
+                        .then(response => response.json())
+                        .then(data => {
+                            if(data.error) {
+                                frame.innerHTML = '<p style="color: red;">Error: ' + data.error + '</p>';
+                            } else {
+                                var html = '<h4>Current Path:</h4><p>' + data.path + '</p>';
+                                html += '<h4>Files:</h4><ul>';
+                                data.files.forEach(function(file) {
+                                    html += '<li>' + file + '</li>';
+                                });
+                                html += '</ul>';
+                                frame.innerHTML = html;
+                            }
+                            frame.style.display = 'block';
+                        })
+                        .catch(error => {
+                            frame.innerHTML = '<p style="color: red;">Error fetching data</p>';
+                            frame.style.display = 'block';
+                        });
+                } else {
+                    frame.style.display = 'none';
+                    frame.innerHTML = '';
                 }
             };
         });

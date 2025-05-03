@@ -419,5 +419,21 @@ def check_data():
     </html>
     """
 
+import os
+from flask import jsonify
+
+@app.route('/get_path_files')
+def get_path_files():
+    try:
+        current_path = os.path.abspath(os.getcwd())
+        files = os.listdir(current_path)
+        return jsonify({
+            'path': current_path,
+            'files': files
+        })
+    except Exception as e:
+        logger.error(f"Error getting path and files: {e}")
+        return jsonify({'error': 'Failed to get path and files'}), 500
+
 if __name__ == '__main__':
     socketio.run(app, debug=True)
