@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Real-time Chat</title>
+    <!-- Bootstrap CSS Dark Theme -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@4.5.2/dist/darkly/bootstrap.min.css" integrity="sha384-+0n0xVW2eSR5OomGNYDnhz8t6Y5Q5b5Q5b5Q5b5Q5b5Q5b5Q5b5Q5b5Q5b5Q5b5Q" crossorigin="anonymous">
+    <!-- Bootstrap JS -->
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- Socket.IO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        /* Override conflicting inline styles for dark theme */
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #121212; color: #e0e0e0; }
+        #chat { border: 1px solid #444; height: 300px; overflow-y: scroll; padding: 10px; background-color: #1e1e1e; }
+        #message { width: 80%; background-color: #2c2c2c; color: #e0e0e0; border: 1px solid #444; }
+        #send { width: 18%; }
+        #usernameInput { margin-bottom: 10px; }
+        .message { margin: 5px 0; }
+        .status { color: #bbb; font-style: italic; }
+        .system-message { color: #bbb; }
+    </style>
+</head>
+<body>
+    <h2>Real-time Chat</h2>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div id="flashMessages" style="border: 1px solid red; background-color: #fdd; color: red; padding: 10px; margin-bottom: 10px;">
+          <ul style="margin: 0; padding-left: 20px;">
+            {% for message in messages %}
+              <li>{{ message }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% if not username %}
+    <div id="loginForm">
+        <form id="login" method="post" action="/login">
+            <label for="loginUsername">Username:</label>
+            <input type="text" id="loginUsername" name="username" autocomplete="off" required />
+            <label for="loginPassword">Password:</label>
+            <input type="password" id="loginPassword" name="password" required />
+            <button type="submit">Login</button>
+        </form>
+        <button id="showRegisterBtn" style="margin-top: 10px;">Register</button>
+    </div>
+
+    <div id="registerFrame" style="display:none; border: 1px solid #ccc; padding: 10px; margin-top: 10px;">
+        <form id="register" method="post" action="/register">
+            <h3>Register</h3>
+            <label for="regUsername">Username:</label>
+            <input type="text" id="regUsername" name="username" required /><br/>
+            <label for="regEmail">Email:</label>
+            <input type="email" id="regEmail" name="email" required /><br/>
+            <label for="regPhone">Phone:</label>
+            <input type="text" id="regPhone" name="phone" required /><br/>
+            <label for="regPassword">Password:</label>
+            <input type="password" id="regPassword" name="password" required /><br/>
+            <label for="regFirstName">First Name:</label>
+            <input type="text" id="regFirstName" name="first_name" /><br/>
+            <label for="regLastName">Last Name:</label>
+            <input type="text" id="regLastName" name="last_name" /><br/>
+            <label for="regBirthDate">Birth Date:</label>
+            <input type="date" id="regBirthDate" name="birth_date" /><br/>
+            <label for="regBio">Bio:</label>
+            <textarea id="regBio" name="bio"></textarea><br/>
+            <label for="regStatus">Status:</label>
+            <input type="text" id="regStatus" name="status" /><br/>
+            <label for="regTheme">Theme:</label>
+            <select id="regTheme" name="theme">
+                <option value="light">Light</option>
+                <option value="dark" selected>Dark</option>
+            </select><br/>
+            <label for="regLanguage">Language:</label>
+            <input type="text" id="regLanguage" name="language" value="en" /><br/>
+            <label for="regNotification">Notifications Enabled:</label>
+            <input type="checkbox" id="regNotification" name="notification_enabled" checked /><br/>
+            <label for="regPrivacy">Privacy Level:</label>
+            <input type="number" id="regPrivacy" name="privacy_level" value="0" min="0" max="10" /><br/>
+            <button type="submit">Register</button>
+            <button type="button" id="cancelRegisterBtn">Cancel</button>
+        </form>
+    </div>
+
+
+    {% else %}
+    <div>
+        <p>Welcome, {{ username }}! <a href="{{ url_for('logout') }}">Logout</a></p>
+    </div>
+    <div id="chat"></div>
+    <input id="message" autocomplete="off" placeholder="Type your message here..." />
+    <button id="send">Send</button>
+    {% endif %}
+
+    <button id="checkDataBtn" style="margin-top: 10px;">Check Data</button>
+    <iframe id="dataFrame" src="" style="width: 100%; height: 400px; display: none; border: 1px solid #ccc; margin-top: 10px;"></iframe>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var socket = io();
+            var username = '{{ username }}';
+
+            // Removed join event emission to ensure join logic only after successful auth on server side
+
+            document.getElementById('send').onclick = sendMessage;
+            document.getElementById('message').addEventListener('keypress', function(e) {
+                if(e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+
+            function sendMessage() {
+                var input = document.getElementById('message');
+                var msg = input.value.trim();
+                if(msg === '') return;
+                socket.emit('message', {username: username, msg: msg});
+                input.value = '';
+            }
+
+            socket.on('message', function(data) {
+                try {
+                    // Filter out system messages that should not be displayed
+                    if(data.message_type === 'system') {
+                        return;
+                    }
+                    var chat = document.getElementById('chat');
+                    var div = document.createElement('div');
+                    div.className = 'message';
+                    var timestamp = '[no timestamp] ';
+                    if(data.sent_at) {
+                        var date = new Date(data.sent_at);
+                        if(!isNaN(date.getTime())) {
+                            var year = date.getFullYear();
+                            var month = ('0' + (date.getMonth() + 1)).slice(-2);
+                            var day = ('0' + date.getDate()).slice(-2);
+                            var hours = ('0' + date.getHours()).slice(-2);
+                            var minutes = ('0' + date.getMinutes()).slice(-2);
+                            var seconds = ('0' + date.getSeconds()).slice(-2);
+                            timestamp = '[' + year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds + '] ';
+                        }
+                    }
+                    if(data.username === 'System') {
+                        div.classList.add('system-message');
+                        div.textContent = timestamp + data.msg;
+                    } else {
+                        div.textContent = timestamp + data.username + ': ' + data.msg;
+                    }
+                    chat.appendChild(div);
+                    chat.scrollTop = chat.scrollHeight;
+                } catch (e) {
+                    console.error('Error processing message:', e, data);
+                }
+            });
+
+            socket.on('status', function(data) {
+                var chat = document.getElementById('chat');
+                var div = document.createElement('div');
+                div.className = 'status';
+                div.textContent = data.msg;
+                chat.appendChild(div);
+                chat.scrollTop = chat.scrollHeight;
+            });
+
+            // Listen for old messages loaded from the server
+            socket.on('load_messages', function(messages) {
+                try {
+                    var chat = document.getElementById('chat');
+                    messages.forEach(function(data) {
+                        var div = document.createElement('div');
+                        div.className = 'message';
+                        var timestamp = '[no timestamp] ';
+                        if(data.sent_at) {
+                            var date = new Date(data.sent_at);
+                            if(!isNaN(date.getTime())) {
+                                var year = date.getFullYear();
+                                var month = ('0' + (date.getMonth() + 1)).slice(-2);
+                                var day = ('0' + date.getDate()).slice(-2);
+                                var hours = ('0' + date.getHours()).slice(-2);
+                                var minutes = ('0' + date.getMinutes()).slice(-2);
+                                var seconds = ('0' + date.getSeconds()).slice(-2);
+                                timestamp = '[' + year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds + '] ';
+                            }
+                        }
+                        if(data.username === 'System') {
+                            div.classList.add('system-message');
+                            div.textContent = timestamp + data.msg;
+                        } else {
+                            div.textContent = timestamp + data.username + ': ' + data.msg;
+                        }
+                        chat.appendChild(div);
+                    });
+                    chat.scrollTop = chat.scrollHeight;
+                } catch (e) {
+                    console.error('Error processing load_messages:', e, messages);
+                }
+            });
+
+            // Toggle data frame visibility and load data
+            document.getElementById('checkDataBtn').onclick = function() {
+                var frame = document.getElementById('dataFrame');
+                if(frame.style.display === 'none') {
+                    frame.src = '/check_data';
+                    frame.style.display = 'block';
+                } else {
+                    frame.style.display = 'none';
+                    frame.src = '';
+                }
+            };
+        });
+
+        // Add event listeners for register form toggle
+        document.getElementById('showRegisterBtn').addEventListener('click', function() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerFrame').style.display = 'block';
+        });
+
+        document.getElementById('cancelRegisterBtn').addEventListener('click', function() {
+            document.getElementById('registerFrame').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+        });
+    </script>
+</body>
+</html>
