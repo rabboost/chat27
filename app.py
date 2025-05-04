@@ -14,9 +14,13 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
 
+import os
+
 def get_db_connection():
     """Helper function to get a SQLite connection with row factory set."""
-    conn = sqlite3.connect('chat.db')
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(base_dir, 'chat.db')
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
 
