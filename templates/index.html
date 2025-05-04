@@ -101,17 +101,31 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded event fired');
             var socket = io();
             var username = '{{ username }}';
 
             // Removed join event emission to ensure join logic only after successful auth on server side
 
-            document.getElementById('send').onclick = sendMessage;
-            document.getElementById('message').addEventListener('keypress', function(e) {
-                if(e.key === 'Enter') {
-                    sendMessage();
-                }
-            });
+            console.log('Attaching event listeners to buttons');
+            var sendBtn = document.getElementById('send');
+            if(sendBtn) {
+                sendBtn.onclick = sendMessage;
+                console.log('Attached send button event listener');
+            } else {
+                console.log('Send button not found');
+            }
+            var messageInput = document.getElementById('message');
+            if(messageInput) {
+                messageInput.addEventListener('keypress', function(e) {
+                    if(e.key === 'Enter') {
+                        sendMessage();
+                    }
+                });
+                console.log('Attached message input keypress listener');
+            } else {
+                console.log('Message input not found');
+            }
 
             function sendMessage() {
                 var input = document.getElementById('message');
@@ -119,6 +133,66 @@
                 if(msg === '') return;
                 socket.emit('message', {username: username, msg: msg});
                 input.value = '';
+            }
+
+            var checkDataBtn = document.getElementById('checkDataBtn');
+            if(checkDataBtn) {
+                console.log('checkDataBtn found');
+                checkDataBtn.onclick = function() {
+                    console.log('checkDataBtn clicked');
+                    var frame = document.getElementById('dataFrame');
+                    if(frame.style.display === 'none') {
+                        frame.style.display = 'block';
+                        frame.src = '/check_data';
+                    } else {
+                        frame.style.display = 'none';
+                        frame.src = '';
+                    }
+                };
+            } else {
+                console.log('checkDataBtn not found');
+            }
+
+            var showPathFilesBtn = document.getElementById('showPathFilesBtn');
+            if(showPathFilesBtn) {
+                console.log('showPathFilesBtn found');
+                showPathFilesBtn.onclick = function() {
+                    console.log('showPathFilesBtn clicked');
+                    var frame = document.getElementById('pathFilesFrame');
+                    if(frame.style.display === 'none') {
+                        frame.style.display = 'block';
+                        fetch('/get_path_files', { credentials: 'same-origin' })
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Network response was not ok: ' + response.statusText);
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                if(data.error) {
+                                    frame.innerHTML = '<p style="color: red;">Error: ' + data.error + '</p>';
+                                } else if (!data.files || data.files.length === 0) {
+                                    frame.innerHTML = '<p>No files found in the current path.</p>';
+                                } else {
+                                    var html = '<h4>Current Path:</h4><p>' + data.path + '</p>';
+                                    html += '<h4>Files:</h4><ul>';
+                                    data.files.forEach(function(file) {
+                                        html += '<li>' + file + '</li>';
+                                    });
+                                    html += '</ul>';
+                                    frame.innerHTML = html;
+                                }
+                            })
+                            .catch(error => {
+                                frame.innerHTML = '<p style="color: red;">Error fetching data: ' + error.message + '</p>';
+                            });
+                    } else {
+                        frame.style.display = 'none';
+                        frame.innerHTML = '';
+                    }
+                };
+            } else {
+                console.log('showPathFilesBtn not found');
             }
 
             socket.on('message', function(data) {
@@ -203,8 +277,8 @@
             document.getElementById('checkDataBtn').onclick = function() {
                 var frame = document.getElementById('dataFrame');
                 if(frame.style.display === 'none') {
-                    frame.src = '/check_data';
                     frame.style.display = 'block';
+                    frame.src = '/check_data';
                 } else {
                     frame.style.display = 'none';
                     frame.src = '';
@@ -215,11 +289,19 @@
             document.getElementById('showPathFilesBtn').onclick = function() {
                 var frame = document.getElementById('pathFilesFrame');
                 if(frame.style.display === 'none') {
-                    fetch('/get_path_files')
-                        .then(response => response.json())
+                    frame.style.display = 'block';
+                    fetch('/get_path_files', { credentials: 'same-origin' })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok: ' + response.statusText);
+                            }
+                            return response.json();
+                        })
                         .then(data => {
                             if(data.error) {
                                 frame.innerHTML = '<p style="color: red;">Error: ' + data.error + '</p>';
+                            } else if (!data.files || data.files.length === 0) {
+                                frame.innerHTML = '<p>No files found in the current path.</p>';
                             } else {
                                 var html = '<h4>Current Path:</h4><p>' + data.path + '</p>';
                                 html += '<h4>Files:</h4><ul>';
@@ -229,11 +311,9 @@
                                 html += '</ul>';
                                 frame.innerHTML = html;
                             }
-                            frame.style.display = 'block';
                         })
                         .catch(error => {
-                            frame.innerHTML = '<p style="color: red;">Error fetching data</p>';
-                            frame.style.display = 'block';
+                            frame.innerHTML = '<p style="color: red;">Error fetching data: ' + error.message + '</p>';
                         });
                 } else {
                     frame.style.display = 'none';

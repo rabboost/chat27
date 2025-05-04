@@ -369,6 +369,7 @@ def handle_message(data):
 
 @app.route('/check_data')
 def check_data():
+    logger.info("check_data route accessed")
     try:
         with get_db_connection() as conn:
             c = conn.cursor()
@@ -424,6 +425,7 @@ from flask import jsonify
 
 @app.route('/get_path_files')
 def get_path_files():
+    logger.info("get_path_files route accessed")
     try:
         current_path = os.path.abspath(os.getcwd())
         files = os.listdir(current_path)
