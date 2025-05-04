@@ -15,14 +15,31 @@ app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
 
 import os
+import shutil
 
 def get_db_connection():
     """Helper function to get a SQLite connection with row factory set."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(base_dir, 'chat.db')
+
+    # Detect if running on Vercel by checking environment variable
+    if os.environ.get('VERCEL'):
+        # Use writable /tmp directory for database on Vercel
+        tmp_db_path = '/tmp/chat.db'
+        source_db_path = os.path.join(base_dir, 'chat.db')
+        # Copy database to /tmp if it does not exist there
+        if not os.path.exists(tmp_db_path):
+            try:
+                shutil.copy2(source_db_path, tmp_db_path)
+            except Exception as e:
+                logger.error(f"Error copying database to /tmp: {e}")
+        db_path = tmp_db_path
+    else:
+        db_path = os.path.join(base_dir, 'chat.db')
+
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
+
 
 def emit_system_message(msg, suppress_emit=False):
     """Helper function to log and emit a system message via socketio."""
