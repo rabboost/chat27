@@ -432,8 +432,9 @@ if __name__ == '__main__':
     import os
 
     debug_mode = os.environ.get('FLASK_DEBUG', '0') == '1'
+    port = int(os.environ.get('PORT', 5000))
     if debug_mode:
         socketio.run(app, debug=True)
     else:
         # Use eventlet WSGI server for production
-        eventlet.wsgi.server(eventlet.listen(('', 5000)), app)
+        eventlet.wsgi.server(eventlet.listen(('', port)), app)
