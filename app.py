@@ -7,9 +7,12 @@ import hashlib
 import uuid
 from markupsafe import Markup
 import os
+import os
 from dotenv import load_dotenv
 
-load_dotenv()  # Load environment variables from .env file
+# Load environment variables from .env file only if not in production
+if os.environ.get('FLASK_ENV') != 'production':
+    load_dotenv()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -18,6 +21,13 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
+
+# Log the DATABASE_URL environment variable at startup for debugging
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    logger.info(f"DATABASE_URL environment variable is set: {database_url[:40]}...")  # Log partial for security
+else:
+    logger.error("DATABASE_URL environment variable is NOT set")
 
 def get_db_connection():
     """Helper function to get a PostgreSQL connection with dict cursor."""
